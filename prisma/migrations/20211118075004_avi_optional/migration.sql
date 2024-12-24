@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Trip" ALTER COLUMN "aviDate" DROP NOT NULL;

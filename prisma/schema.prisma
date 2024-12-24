@@ -1,0 +1,602 @@
+datasource db {
+  provider = "postgres"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch"]
+}
+
+// ---------------------------
+// Enums - Only supported in Postgresql
+// ---------------------------
+enum Role {
+  //Admin roles
+  SUPER_ADMIN
+  SERVICES
+  COMMAND
+  BASE
+  SUB_UNIT
+  MAINTENANCE
+  AUDITOR
+  //App roles
+  DRIVER
+  PRE_APPROVED_DRIVER
+  MAC
+  APPROVING_OFFICER
+}
+
+enum TokenType {
+  RESET_PASSWORD
+}
+
+enum Provider {
+  LOCAL
+  MICROSOFT
+}
+
+enum ApprovalStatus {
+  Approved
+  Rejected
+  Pending
+}
+
+enum DestinationStatus {
+  Review
+  InProgress
+  Inactive
+  Completed
+  Cancelled
+}
+
+enum TripApprovalStatus {
+  Approved
+  Rejected
+  Pending
+  Cancelled
+}
+
+enum MTRACFormStatus {
+  Review
+  Approved
+  Deny
+}
+
+enum FrontSensorTag {
+  Yes
+  No
+}
+
+enum CheckInOutType {
+  Preventive
+  Corrective
+  AVI
+}
+
+enum FuelType {
+  Diesel
+  Petrol
+}
+
+enum VehicleType {
+  Vehicle
+  Motorcycle
+}
+
+enum FilledBy {
+  FrontPassenger
+  VehicleCommander
+}
+
+enum TripStatus {
+  Inactive
+  InProgress
+  Cancelled
+  Completed
+}
+
+enum requisitionerPurpose {
+  BOS
+  AOS
+  POL
+}
+
+// ---------------------------
+// User & Authentication Models
+// ---------------------------
+
+model Roles {
+  id        Int      @id @default(autoincrement())
+  name      Role     @unique // Must conform to Role enum
+  deleted   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  User      User[]
+}
+
+model User {
+  id                         Int               @id @default(autoincrement())
+  name                       String?
+  email                      String
+  username                   String
+  password                   String?
+  deleted                    Boolean           @default(false)
+  hasBaseLevelVehiclesAccess Boolean           @default(false)
+  roles                      Roles[]
+  auditLogs                  AuditLog[]
+  provider                   Provider          @default(LOCAL) // Must Conform to Provider enum
+  subUnit                    SubUnit?          @relation(fields: [subUnitId], references: [id], name: "SubUnit Drivers")
+  subUnitId                  Int?
+  adminSubUnit               SubUnit?          @relation(fields: [adminSubUnitId], references: [id], name: "SubUnit Admins")
+  adminSubUnitId             Int?
+  service                    Service?          @relation(fields: [serviceId], references: [id])
+  serviceId                  Int?
+  command                    Command?          @relation(fields: [commandId], references: [id])
+  commandId                  Int?
+  base                       Base?             @relation(fields: [baseAdminId], references: [id])
+  baseAdminId                Int?
+  auditor                    Auditor?
+  maintenanceAdmin           MaintenanceAdmin?
+  bocTrips                   BocTrip[]
+  trips                      Trip[]            @relation(name: "Driver Trips")
+  approvedTrips              Trip[]            @relation(name: "Approved Trips by Approving Officer")
+  approvedDestinations       Destination[]
+  licenseClasses             LicenseClass[]
+  MTBroadcast                MTBroadcast[]
+  tokens                     Token[]
+  sessions                   Session[]
+  createdAt                  DateTime          @default(now())
+  updatedAt                  DateTime          @updatedAt
+}
+
+model Session {
+  id                 Int       @id @default(autoincrement())
+  expiresAt          DateTime?
+  handle             String    @unique
+  hashedSessionToken String?
+  antiCSRFToken      String?
+  publicData         String?
+  privateData        String?
+
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Token {
+  id          Int       @id @default(autoincrement())
+  hashedToken String
+  type        TokenType // must conform to TokenType enum
+  expiresAt   DateTime
+  sentTo      String
+  user        User      @relation(fields: [userId], references: [id])
+  userId      Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([hashedToken, type])
+}
+
+// ---------------------------
+// System Models
+// ---------------------------
+
+model Trip {
+  id                  Int                @id @default(autoincrement())
+  tripDate            DateTime
+  approvalStatus      TripApprovalStatus @default(Pending) // must conform to TripStatus enum
+  currentMeterReading Float              @default(0)
+  tripStatus          TripStatus         @default(Inactive)
+  endedAt             DateTime?
+  aviDate             DateTime?
+  deleted             Boolean            @default(false)
+  driver              User               @relation(fields: [driverId], references: [id], name: "Driver Trips")
+  driverId            Int
+  vehicle             Vehicle            @relation(fields: [vehiclesId], references: [id])
+  vehiclesId          Int
+  approvingOfficer    User?              @relation(fields: [approvingOfficerId], references: [id], name: "Approved Trips by Approving Officer")
+  approvingOfficerId  Int?
+  destinations        Destination[]
+  MTRACForm           MTRACForm?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+}
+
+model Destination {
+  id                   Int               @id @default(autoincrement())
+  to                   String
+  requisitionerPurpose String
+  details              String?
+  deleted              Boolean           @default(false)
+  isAdHocDestination   Boolean           @default(false)
+  status               DestinationStatus @default(Inactive) // must conform to DestinationStatus enum
+  trip                 Trip              @relation(fields: [tripId], references: [id])
+  tripId               Int
+  eLog                 ELog?
+  approvingOfficer     User?             @relation(fields: [approvingOfficerId], references: [id])
+  approvingOfficerId   Int?
+  approvalStatus       ApprovalStatus    @default(Pending)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+}
+
+model ELog {
+  id                    Int          @id @default(autoincrement())
+  startTime             DateTime     @default(now())
+  endTime               DateTime?
+  stationaryRunningTime Int?
+  meterReading          Float          @default(0)
+  totalDistance         Float?         @default(0)
+  fuelReceived          Float?
+  deleted               Boolean      @default(false)
+  fuelType              FuelType? // must conform to FuelType enum
+  remarks               String?
+  POSONumber            Int?
+  requisitionerPurpose  String?
+  destination           Destination? @relation(fields: [destinationId], references: [id])
+  destinationId         Int?         @unique
+  bocTrip               BocTrip?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+}
+
+model BocTrip {
+  id                   Int      @id @default(autoincrement())
+  tripDate             DateTime
+  requisitionerPurpose String
+  currentMeterReading  Float
+  deleted              Boolean  @default(false)
+  eLog                 ELog     @relation(fields: [eLogId], references: [id])
+  eLogId               Int      @unique
+  driver               User     @relation(fields: [driverId], references: [id]) //check optional or mendatory some are missing in strapi row
+  driverId             Int
+  vehicle              Vehicle  @relation(fields: [vehicleId], references: [id])
+  vehicleId            Int
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("BOCTrip")
+}
+
+model Base {
+  id                Int                @id @default(autoincrement())
+  name              String
+  description       String?
+  deleted           Boolean            @default(false)
+  subUnits          SubUnit[]
+  admins            User[]
+  command           Command            @relation(fields: [commandId], references: [id])
+  commandId         Int
+  maintenanceAdmins MaintenanceAdmin[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+model SubUnit {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String
+  base        Base      @relation(fields: [baseId], references: [id])
+  baseId      Int
+  deleted     Boolean   @default(false)
+  admins      User[]    @relation(name: "SubUnit Admins")
+  drivers     User[]    @relation(name: "SubUnit Drivers") //check optional or mendatory in creating time
+  vehicles    Vehicle[] //check optional or mendatory in creating time
+  auditors    Auditor[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Updates {
+  id                 Int               @id @default(autoincrement())
+  notes              String
+  dateOfCompletion   DateTime
+  vehicleServicing   VehicleServicing? @relation(fields: [vehicleServicingId], references: [id])
+  vehicleServicingId Int?
+  deleted            Boolean           @default(false)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+}
+
+model BasicIssueTools {
+  id         Int       @id @default(autoincrement())
+  name       String
+  quantity   Int
+  deleted    Boolean   @default(false)
+  checkIn    CheckIn?  @relation(fields: [checkInId], references: [id])
+  checkInId  Int?
+  checkOut   CheckOut? @relation(fields: [checkOutId], references: [id]) //check optional or mendatory in creating time
+  checkOutId Int?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Vehicle {
+  id                  Int                @id @default(autoincrement())
+  vehicleNumber       String //some are numbers and some are int
+  model               String //I think some it is mandatory but in some row it is null in strapi
+  isServiceable       Boolean
+  deleted             Boolean            @default(false)
+  vehicleType         VehicleType // must conform to VehicleType enum
+  subUnit             SubUnit            @relation(fields: [subUnitId], references: [id])
+  subUnitId           Int
+  trips               Trip[]
+  platforms           VehiclesPlatforms  @relation(fields: [vehiclesPlatformsId], references: [id])
+  vehiclesPlatformsId Int
+  bocTrips            BocTrip[]
+  vehicleServicing    VehicleServicing[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+}
+
+model VehiclesPlatforms {
+  id             Int           @id @default(autoincrement())
+  name           String
+  deleted        Boolean       @default(false)
+  licenseClass   LicenseClass? @relation(fields: [licenseClassId], references: [id]) //it is mandatory in strapi but confusion in creation time
+  licenseClassId Int?
+  vehicles       Vehicle[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model VehicleServicing {
+  id              Int               @id @default(autoincrement())
+  maintenanceType CheckInOutType
+  deleted         Boolean           @default(false)
+  status          DestinationStatus @default(InProgress) // must conform to DestinationStatus enum
+  checkIn         CheckIn? //optional in  strapi but how can i make optional in this model because if i change to optional then chechin table change relation
+  checkOut        CheckOut? //optional in  strapi but how can i make optional in this model because if i change to optional then chechin table change relation
+  updates         Updates[]
+  vehicle         Vehicle           @relation(fields: [vehicleId], references: [id])
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  vehicleId       Int
+}
+
+model Quizzes {
+  id          Int        @id @default(autoincrement())
+  question    String
+  answer      String
+  deleted     Boolean    @default(false)
+  MTRACForm   MTRACForm? @relation(fields: [MTRACFormId], references: [id])
+  MTRACFormId Int?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model File {
+  id            Int          @id @default(autoincrement())
+  originalName  String
+  encoding      String
+  mimetype      String
+  path          String
+  size          Int
+  CheckIn       CheckIn?     @relation(fields: [checkInId], references: [id])
+  checkInId     Int?
+  MTBroadcast   MTBroadcast? @relation(fields: [mTBroadcastId], references: [id])
+  mTBroadcastId Int?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model CheckIn {
+  id                      Int                             @id @default(autoincrement())
+  workCenter              String
+  telephoneNo             String
+  images                  File[]
+  dateIn                  DateTime
+  speedoReading           String //I think it should be int but in strapi some are like 2309km and some like 2309
+  swdReading              String?
+  expectedCheckoutDate    DateTime
+  expectedCheckoutTime    DateTime
+  handedBy                String
+  attender                String
+  deleted                 Boolean                         @default(false)
+  checkInType             CheckInOutType // must conform to CheckInOutType enum
+  frontSensorTag          FrontSensorTag // must conform to FrontSensorTag enum
+  correctiveMaintenance   CorrectiveMaintenanceCheckIn?
+  preventiveMaintenance   PreventiveMaintenanceCheckIn?
+  annualVehicleInspection AnnualVehicleInspectionCheckIn?
+  basicIssueTools         BasicIssueTools[]
+  vehicleServicing        VehicleServicing?               @relation(fields: [vehicleServicingId], references: [id]) //mandatory or not in creating time
+  vehicleServicingId      Int?                            @unique
+  createdAt               DateTime                        @default(now())
+  updatedAt               DateTime                        @updatedAt
+}
+
+model PreventiveMaintenanceCheckIn {
+  id        Int      @id @default(autoincrement())
+  type      String
+  defect    String
+  deleted   Boolean  @default(false)
+  checkIn   CheckIn  @relation(fields: [checkinId], references: [id])
+  checkinId Int      @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CorrectiveMaintenanceCheckIn {
+  id                    Int      @id @default(autoincrement())
+  correctiveMaintenance String
+  deleted               Boolean  @default(false)
+  checkIn               CheckIn  @relation(fields: [checkinId], references: [id])
+  checkinId             Int      @unique
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model AnnualVehicleInspectionCheckIn {
+  id        Int      @id @default(autoincrement())
+  defect    String
+  checkIn   CheckIn  @relation(fields: [checkinId], references: [id])
+  checkinId Int      @unique
+  deleted   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CheckOut {
+  id                      Int                              @id @default(autoincrement())
+  dateOut                 DateTime
+  speedoReading           String //I think it should be int but in strapi some are like 2309km and some like 2309
+  swdReading              String?
+  time                    DateTime
+  remark                  String?
+  attendedBy              String
+  workCenter              String
+  vehicleTakenOver        String
+  deleted                 Boolean                          @default(false)
+  checkOutType            CheckInOutType // must conform to CheckInOutType enum
+  basicIssueTools         BasicIssueTools[] //mandatory or not in creating time
+  vehicleServicing        VehicleServicing?                @relation(fields: [vehicleServicingId], references: [id]) //mandatory or not in creating time
+  vehicleServicingId      Int?                             @unique
+  preventiveMaintenance   PreventiveMaintenanceCheckOut?
+  annualVehicleInspection AnnualVehicleInspectionCheckOut?
+  createdAt               DateTime                         @default(now())
+  updatedAt               DateTime                         @updatedAt
+}
+
+model PreventiveMaintenanceCheckOut {
+  id                   Int       @id @default(autoincrement())
+  nextServicingDate    DateTime
+  nextServicingMileage Int
+  deleted              Boolean   @default(false)
+  checkOut             CheckOut? @relation(fields: [checkOutId], references: [id])
+  checkOutId           Int?      @unique
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}
+
+model AnnualVehicleInspectionCheckOut {
+  id          Int       @id @default(autoincrement())
+  nextAVIDate DateTime
+  checkOut    CheckOut? @relation(fields: [checkOutID], references: [id])
+  checkOutID  Int?      @unique
+  deleted     Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model LearningVideos {
+  id          Int      @id @default(autoincrement())
+  video       String //file in strapi
+  title       String
+  description String
+  deleted     Boolean  @default(false)
+  cover       String //file in strapi
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model LicenseClass {
+  id                Int                 @id @default(autoincrement())
+  class             String
+  users             User[]
+  deleted           Boolean             @default(false)
+  vehiclesPlatforms VehiclesPlatforms[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+}
+
+model MTRACForm {
+  id                            Int             @id @default(autoincrement())
+  overAllRisk                   String
+  dispatchDate                  DateTime?
+  dispatchTime                  DateTime?
+  releaseDate                   DateTime?
+  releaseTime                   DateTime?
+  isAdditionalDetailApplicable  Boolean
+  driverRiskAssessmentChecklist String[]
+  otherRiskAssessmentChecklist  String[] //for vehicle commander or front pessanger
+  safetyMeasures                String?
+  rankAndName                   String?
+  personalPin                   String?
+  deleted                       Boolean         @default(false)
+  filledBy                      FilledBy? //todo enum
+  status                        MTRACFormStatus // must conform to MTRACFormStatus enum
+  trip                          Trip            @relation(fields: [tripId], references: [id])
+  tripId                        Int             @unique
+  quizzes                       Quizzes[]
+  createdAt                     DateTime        @default(now())
+  updatedAt                     DateTime        @updatedAt
+
+}
+
+model Service {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String
+  admins      User[]
+  commands    Command[]
+  deleted     Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Command {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  bases       Base[]
+  admins      User[]
+  deleted     Boolean  @default(false)
+  service     Service  @relation(fields: [serviceId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  serviceId   Int
+}
+
+model Auditor {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  deleted     Boolean  @default(false)
+  user        User     @relation(fields: [userId], references: [id])
+  userId      Int      @unique
+  subUnit     SubUnit  @relation(fields: [subUnitId], references: [id])
+  subUnitId   Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+}
+
+model MaintenanceAdmin {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  deleted     Boolean  @default(false)
+  base        Base     @relation(fields: [baseId], references: [id])
+  baseId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  userId      Int      @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  deleted     Boolean  @default(false)
+  currentRole Role
+  addedBy     User     @relation(fields: [userId], references: [id])
+  userId      Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model MTBroadcast {
+  id        Int      @id @default(autoincrement())
+  title     String
+  file      String
+  userId    Int
+  deleted   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  User      User     @relation(fields: [userId], references: [id])
+  File      File[]
+  subUnitId Int
+}
