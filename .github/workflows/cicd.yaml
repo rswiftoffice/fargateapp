@@ -1,14 +1,14 @@
-name: ci-cd for MTFleet-App
-on:
-  push:
-    branches:
-      - "main_v2" # This specifies the branch to trigger the workflow on
+#name: ci-cd for MTFleet-App
+#on:
+  #push:
+    #branches:
+      #- "main_v2" # This specifies the branch to trigger the workflow on
 
-jobs:
-  run-script:
-    runs-on: self-hosted  # This specifies to run on a self-hosted runner
-    steps:
-      - uses: actions/checkout@v2  # Checks out your repository code
-      - name: Run continuous deployment script
-        run: |  # This defines the command to run
-          bash /home/azureuser/app_deploy.sh
+#jobs:
+  #run-script:
+    #runs-on: self-hosted  # This specifies to run on a self-hosted runner
+    #steps:
+      #- uses: actions/checkout@v2  # Checks out your repository code
+      #- name: Run continuous deployment script
+        #run: |  # This defines the command to run
+          #bash /home/azureuser/app_deploy.sh
