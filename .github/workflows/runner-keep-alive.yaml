@@ -1,13 +1,13 @@
-name: Self-Hosted-Runner Keep-Alive for MTFleet-App  # This specifies the name of the workflow
-on:
-  schedule:
-    - cron: "0 0 * * *"
+#name: Self-Hosted-Runner Keep-Alive for MTFleet-App  # This specifies the name of the workflow
+#on:
+  #schedule:
+    #- cron: "0 0 * * *"
 
-jobs:
-  run-script:
-    runs-on: self-hosted  # This specifies to run on a self-hosted runner
-    steps:
-      - uses: actions/checkout@v2  # Checks out your repository code
-      - name: Run continuous deployment script
-        run: |  # This defines the command to run
-          bash /home/azureuser/keep-alive.sh
+#jobs:
+  #run-script:
+    #runs-on: self-hosted  # This specifies to run on a self-hosted runner
+    #steps:
+      #- uses: actions/checkout@v2  # Checks out your repository code
+      #- name: Run continuous deployment script
+        #run: |  # This defines the command to run
+          #bash /home/azureuser/keep-alive.sh
