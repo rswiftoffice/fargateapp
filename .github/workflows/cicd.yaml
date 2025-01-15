@@ -52,11 +52,18 @@ jobs:
             --task-definition ${{ env.ECS_TASK_DEFINITION }} \
             --region ${{ env.AWS_REGION }} \
             > task-definition.json
+          
+      - name: Debug task definition contents
+        run: |
+          cat task-definition.json
 
       - name: Update the ECS task definition with the new image
         id: update-task-def
         run: |
           NEW_IMAGE=${{ steps.build-image.outputs.image }}
+          # Ensure NEW_IMAGE is populated
+          echo "NEW_IMAGE is: $NEW_IMAGE"
+          
           # Use jq to update the container image in the task definition
           cat task-definition.json | jq '.taskDefinition | .containerDefinitions[0].image = env.NEW_IMAGE | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities)' > updated-task-definition.json
 
