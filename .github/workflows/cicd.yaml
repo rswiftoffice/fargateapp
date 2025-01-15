@@ -76,11 +76,10 @@ jobs:
             exit 1
           fi
           
-          # Use jq to update the container image and remove unnecessary fields
+          # Use jq to update the container image and preserve necessary fields
           jq \
             --arg NEW_IMAGE "$NEW_IMAGE" \
-            '.taskDefinition.containerDefinitions[0].image = $NEW_IMAGE | 
-             del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+            '.taskDefinition.containerDefinitions[0].image = $NEW_IMAGE' \
             task-definition.json > updated-task-definition.json
 
       - name: Debug updated task definition
