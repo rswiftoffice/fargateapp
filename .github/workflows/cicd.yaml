@@ -10,6 +10,7 @@ env:
   ECR_REPOSITORY: fargateapp
   ECS_SERVICE: fargate-app-service
   ECS_CLUSTER: fargate-cluster
+  ECS_TASK_DEFINITION: fargate-app-task
   CONTAINER_NAME: "fargateapp"
 
 jobs:
@@ -48,7 +49,7 @@ jobs:
         id: get-task-def
         run: |
           aws ecs describe-task-definition \
-            --task-definition ${{ env.ECS_SERVICE }} \
+            --task-definition ${{ env.ECS_TASK_DEFINITION }} \
             --region ${{ env.AWS_REGION }} \
             > task-definition.json
 
