@@ -64,8 +64,12 @@ jobs:
           # Ensure NEW_IMAGE is populated and print it
           echo "NEW_IMAGE is: $NEW_IMAGE"
           
-          # Use jq to update the container image in the task definition
-          cat task-definition.json | jq '.taskDefinition | .containerDefinitions[0].image = env.NEW_IMAGE | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities)' > updated-task-definition.json
+          # Use jq to update the container image and remove unnecessary fields
+          cat task-definition.json | jq \
+            '.taskDefinition | 
+             .containerDefinitions[0].image = env.NEW_IMAGE |
+             del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+            > updated-task-definition.json
 
       - name: Debug updated task definition
         run: |
