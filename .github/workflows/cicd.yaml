@@ -68,8 +68,8 @@ jobs:
       - name: Update the ECS task definition with the new image
         id: update-task-def
         run: |
-          NEW_IMAGE=${{ steps.build-image.outputs.image }}
-          echo "NEW_IMAGE is: $NEW_IMAGE" # Debug statement to check if NEW_IMAGE has the correct value
+          NEW_IMAGE="${{ steps.build-image.outputs.image }}"
+          echo "NEW_IMAGE is: $NEW_IMAGE"  # Debug statement to check if NEW_IMAGE has the correct value
           
           if [ -z "$NEW_IMAGE" ]; then
             echo "Error: NEW_IMAGE is empty!"
@@ -77,11 +77,11 @@ jobs:
           fi
           
           # Use jq to update the container image and remove unnecessary fields
-          cat task-definition.json | jq \
-            '.taskDefinition | 
-             .containerDefinitions[0].image = env.NEW_IMAGE |
+          jq \
+            --arg NEW_IMAGE "$NEW_IMAGE" \
+            '.taskDefinition.containerDefinitions[0].image = $NEW_IMAGE | 
              del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
-            > updated-task-definition.json
+            task-definition.json > updated-task-definition.json
 
       - name: Debug updated task definition
         run: |
