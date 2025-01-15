@@ -26,7 +26,7 @@ COPY . .
 RUN npx prisma generate
 RUN yarn build
 
-EXPOSE 8001
+EXPOSE 8002
 CMD [ "npm", "run", "start:dev" ]
 
 # Build Image
