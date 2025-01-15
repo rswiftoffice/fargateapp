@@ -1,14 +1,47 @@
-#name: ci-cd for MTFleet-App
-#on:
-  #push:
-    #branches:
-      #- "main_v2" # This specifies the branch to trigger the workflow on
+name: CI/CD to ECS Fargate
 
-#jobs:
-  #run-script:
-    #runs-on: self-hosted  # This specifies to run on a self-hosted runner
-    #steps:
-      #- uses: actions/checkout@v2  # Checks out your repository code
-      #- name: Run continuous deployment script
-        #run: |  # This defines the command to run
-          #bash /home/azureuser/app_deploy.sh
+on:
+  push:
+    branches:
+      - main  # Trigger deployment when pushing to the main branch
+     
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Log in to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build and push Docker image to Amazon ECR
+        run: |
+          IMAGE_NAME=fargateapp:${{ github.sha }}
+          docker build -t $IMAGE_NAME .
+          docker push $IMAGE_NAME
+
+      - name: Deploy to ECS
+        run: |
+          aws ecs update-service \
+            --cluster fargate-cluster \
+            --service fargate-app-service \
+            --force-new-deployment \
+  
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
