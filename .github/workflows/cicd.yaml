@@ -45,7 +45,7 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
           
-      - name: Debug image output
+      - name: Debug build-image output
         run: |
           echo "Built image: ${{ steps.build-image.outputs.image }}"
 
@@ -65,8 +65,12 @@ jobs:
         id: update-task-def
         run: |
           NEW_IMAGE=${{ steps.build-image.outputs.image }}
-          # Ensure NEW_IMAGE is populated and print it
-          echo "NEW_IMAGE is: $NEW_IMAGE"
+          echo "NEW_IMAGE is: $NEW_IMAGE" # Debug statement to check if NEW_IMAGE has the correct value
+          
+          if [ -z "$NEW_IMAGE" ]; then
+            echo "Error: NEW_IMAGE is empty!"
+            exit 1
+          fi
           
           # Use jq to update the container image and remove unnecessary fields
           cat task-definition.json | jq \
