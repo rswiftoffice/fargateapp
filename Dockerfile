@@ -1,6 +1,6 @@
 # Initiated by Tran IT <tran@inginim.com>
 FROM node:18-alpine
-#
+
 # Create app directory
 WORKDIR /usr/src/app
 
