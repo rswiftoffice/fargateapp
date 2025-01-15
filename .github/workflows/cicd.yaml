@@ -48,6 +48,10 @@ jobs:
       - name: Debug build-image output
         run: |
           echo "Built image: ${{ steps.build-image.outputs.image }}"
+          if [ -z "${{ steps.build-image.outputs.image }}" ]; then
+            echo "ERROR: The image output is empty!"
+            exit 1
+          fi
 
       - name: Retrieve the current ECS task definition
         id: get-task-def
