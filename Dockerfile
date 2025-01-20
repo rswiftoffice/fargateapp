@@ -12,7 +12,7 @@ COPY firebase.config.js ./
 COPY tsconfig*.json ./
 
 RUN apk add --no-cache python3 py3-pip
-RUN npm install
+RUN npm install -g npm@10.8.2
 # If you are building your code for production
 # RUN npm ci --only=production
 
