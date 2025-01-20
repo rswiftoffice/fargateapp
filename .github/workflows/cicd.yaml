@@ -7,11 +7,11 @@ on:
 
 env:
   AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-  ECR_REPOSITORY: fargateapp
-  ECS_SERVICE: fargate-app-service
-  ECS_CLUSTER: fargate-cluster
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+  ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
+  ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
   ECS_TASK_DEFINITION: .aws/task-definition.json
-  CONTAINER_NAME: "fargateapp"
+  CONTAINER_NAME: ${{ secrets.CONTAINER_NAME }}
   
 
 jobs:
@@ -29,7 +29,6 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
